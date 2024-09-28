@@ -1,53 +1,42 @@
 from __future__ import annotations
-
 import errno
 import json
 import os
 import types
 import typing as t
-
 from werkzeug.utils import import_string
-
 if t.TYPE_CHECKING:
     import typing_extensions as te
-
     from .sansio.app import App
-
-
-T = t.TypeVar("T")
-
+T = t.TypeVar('T')
 
 class ConfigAttribute(t.Generic[T]):
     """Makes an attribute forward to the config"""
 
-    def __init__(
-        self, name: str, get_converter: t.Callable[[t.Any], T] | None = None
-    ) -> None:
+    def __init__(self, name: str, get_converter: t.Callable[[t.Any], T] | None=None) -> None:
         self.__name__ = name
         self.get_converter = get_converter
 
     @t.overload
-    def __get__(self, obj: None, owner: None) -> te.Self: ...
+    def __get__(self, obj: None, owner: None) -> te.Self:
+        ...
 
     @t.overload
-    def __get__(self, obj: App, owner: type[App]) -> T: ...
+    def __get__(self, obj: App, owner: type[App]) -> T:
+        ...
 
-    def __get__(self, obj: App | None, owner: type[App] | None = None) -> T | te.Self:
+    def __get__(self, obj: App | None, owner: type[App] | None=None) -> T | te.Self:
         if obj is None:
             return self
-
         rv = obj.config[self.__name__]
-
         if self.get_converter is not None:
             rv = self.get_converter(rv)
-
-        return rv  # type: ignore[no-any-return]
+        return rv
 
     def __set__(self, obj: App, value: t.Any) -> None:
         obj.config[self.__name__] = value
 
-
-class Config(dict):  # type: ignore[type-arg]
+class Config(dict):
     """Works exactly like a dict but provides ways to fill it from files
     or special dictionaries.  There are two common patterns to populate the
     config.
@@ -91,15 +80,11 @@ class Config(dict):  # type: ignore[type-arg]
     :param defaults: an optional dictionary of default values
     """
 
-    def __init__(
-        self,
-        root_path: str | os.PathLike[str],
-        defaults: dict[str, t.Any] | None = None,
-    ) -> None:
+    def __init__(self, root_path: str | os.PathLike[str], defaults: dict[str, t.Any] | None=None) -> None:
         super().__init__(defaults or {})
         self.root_path = root_path
 
-    def from_envvar(self, variable_name: str, silent: bool = False) -> bool:
+    def from_envvar(self, variable_name: str, silent: bool=False) -> bool:
         """Loads a configuration from an environment variable pointing to
         a configuration file.  This is basically just a shortcut with nicer
         error messages for this line of code::
@@ -111,21 +96,9 @@ class Config(dict):  # type: ignore[type-arg]
                        files.
         :return: ``True`` if the file was loaded successfully.
         """
-        rv = os.environ.get(variable_name)
-        if not rv:
-            if silent:
-                return False
-            raise RuntimeError(
-                f"The environment variable {variable_name!r} is not set"
-                " and as such configuration could not be loaded. Set"
-                " this variable and make it point to a configuration"
-                " file"
-            )
-        return self.from_pyfile(rv, silent=silent)
+        pass
 
-    def from_prefixed_env(
-        self, prefix: str = "FLASK", *, loads: t.Callable[[str], t.Any] = json.loads
-    ) -> bool:
+    def from_prefixed_env(self, prefix: str='FLASK', *, loads: t.Callable[[str], t.Any]=json.loads) -> bool:
         """Load any environment variables that start with ``FLASK_``,
         dropping the prefix from the env key for the config key. Values
         are passed through a loading function to attempt to convert them
@@ -149,47 +122,9 @@ class Config(dict):  # type: ignore[type-arg]
 
         .. versionadded:: 2.1
         """
-        prefix = f"{prefix}_"
-        len_prefix = len(prefix)
+        pass
 
-        for key in sorted(os.environ):
-            if not key.startswith(prefix):
-                continue
-
-            value = os.environ[key]
-
-            try:
-                value = loads(value)
-            except Exception:
-                # Keep the value as a string if loading failed.
-                pass
-
-            # Change to key.removeprefix(prefix) on Python >= 3.9.
-            key = key[len_prefix:]
-
-            if "__" not in key:
-                # A non-nested key, set directly.
-                self[key] = value
-                continue
-
-            # Traverse nested dictionaries with keys separated by "__".
-            current = self
-            *parts, tail = key.split("__")
-
-            for part in parts:
-                # If an intermediate dict does not exist, create it.
-                if part not in current:
-                    current[part] = {}
-
-                current = current[part]
-
-            current[tail] = value
-
-        return True
-
-    def from_pyfile(
-        self, filename: str | os.PathLike[str], silent: bool = False
-    ) -> bool:
+    def from_pyfile(self, filename: str | os.PathLike[str], silent: bool=False) -> bool:
         """Updates the values in the config from a Python file.  This function
         behaves as if the file was imported as module with the
         :meth:`from_object` function.
@@ -204,19 +139,7 @@ class Config(dict):  # type: ignore[type-arg]
         .. versionadded:: 0.7
            `silent` parameter.
         """
-        filename = os.path.join(self.root_path, filename)
-        d = types.ModuleType("config")
-        d.__file__ = filename
-        try:
-            with open(filename, mode="rb") as config_file:
-                exec(compile(config_file.read(), filename, "exec"), d.__dict__)
-        except OSError as e:
-            if silent and e.errno in (errno.ENOENT, errno.EISDIR, errno.ENOTDIR):
-                return False
-            e.strerror = f"Unable to load configuration file ({e.strerror})"
-            raise
-        self.from_object(d)
-        return True
+        pass
 
     def from_object(self, obj: object | str) -> None:
         """Updates the values from the given object.  An object can be of one
@@ -250,19 +173,9 @@ class Config(dict):  # type: ignore[type-arg]
 
         :param obj: an import name or object
         """
-        if isinstance(obj, str):
-            obj = import_string(obj)
-        for key in dir(obj):
-            if key.isupper():
-                self[key] = getattr(obj, key)
+        pass
 
-    def from_file(
-        self,
-        filename: str | os.PathLike[str],
-        load: t.Callable[[t.IO[t.Any]], t.Mapping[str, t.Any]],
-        silent: bool = False,
-        text: bool = True,
-    ) -> bool:
+    def from_file(self, filename: str | os.PathLike[str], load: t.Callable[[t.IO[t.Any]], t.Mapping[str, t.Any]], silent: bool=False, text: bool=True) -> bool:
         """Update the values in the config from a file that is loaded
         using the ``load`` parameter. The loaded data is passed to the
         :meth:`from_mapping` method.
@@ -290,23 +203,9 @@ class Config(dict):  # type: ignore[type-arg]
 
         .. versionadded:: 2.0
         """
-        filename = os.path.join(self.root_path, filename)
+        pass
 
-        try:
-            with open(filename, "r" if text else "rb") as f:
-                obj = load(f)
-        except OSError as e:
-            if silent and e.errno in (errno.ENOENT, errno.EISDIR):
-                return False
-
-            e.strerror = f"Unable to load configuration file ({e.strerror})"
-            raise
-
-        return self.from_mapping(obj)
-
-    def from_mapping(
-        self, mapping: t.Mapping[str, t.Any] | None = None, **kwargs: t.Any
-    ) -> bool:
+    def from_mapping(self, mapping: t.Mapping[str, t.Any] | None=None, **kwargs: t.Any) -> bool:
         """Updates the config like :meth:`update` ignoring items with
         non-upper keys.
 
@@ -314,18 +213,9 @@ class Config(dict):  # type: ignore[type-arg]
 
         .. versionadded:: 0.11
         """
-        mappings: dict[str, t.Any] = {}
-        if mapping is not None:
-            mappings.update(mapping)
-        mappings.update(kwargs)
-        for key, value in mappings.items():
-            if key.isupper():
-                self[key] = value
-        return True
+        pass
 
-    def get_namespace(
-        self, namespace: str, lowercase: bool = True, trim_namespace: bool = True
-    ) -> dict[str, t.Any]:
+    def get_namespace(self, namespace: str, lowercase: bool=True, trim_namespace: bool=True) -> dict[str, t.Any]:
         """Returns a dictionary containing a subset of configuration options
         that match the specified namespace/prefix. Example usage::
 
@@ -353,18 +243,7 @@ class Config(dict):  # type: ignore[type-arg]
 
         .. versionadded:: 0.11
         """
-        rv = {}
-        for k, v in self.items():
-            if not k.startswith(namespace):
-                continue
-            if trim_namespace:
-                key = k[len(namespace) :]
-            else:
-                key = k
-            if lowercase:
-                key = key.lower()
-            rv[key] = v
-        return rv
+        pass
 
     def __repr__(self) -> str:
-        return f"<{type(self).__name__} {dict.__repr__(self)}>"
+        return f'<{type(self).__name__} {dict.__repr__(self)}>'
